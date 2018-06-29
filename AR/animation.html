@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>three.js webgl - FBX loader</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+		}
+		body{
+			overflow: hidden;
+		}
+		.wrap-button button {
+			font-size: 18px;
+			background-color: #108ee9;
+			color: #fff;
+			outline: none;
+			border-radius: 5px;
+			padding: 10px;
+		}
+
+		.hide {
+			visibility: hidden;
+		}
+
+		.wrap-button div {
+			position: absolute;
+			bottom: 6vh;
+			z-index: 501;
+			width: 25%;
+			left: 40%;
+			cursor: pointer;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="wrap">
+
+	</div>
+	<div class="wrap-button">
+		<div href="https://www.baidu.com" class="hide">
+			<button>抽奖</button>
+		</div>
+	</div>
+
+
+	<script src="js/three.js"></script>
+	<script src="js/ar.js"></script>
+
+	<script src="js/libs/inflate.min.js"></script>
+	<script src="js/loaders/FBXLoader.js"></script>
+
+	<script src="js/controls/OrbitControls.js"></script>
+
+	<script src="js/Detector.js"></script>
+	<script src="js/libs/stats.min.js"></script>
+	<script src="js/zepto.js"></script>
+
+	<script>
+		// $(function () {
+		// 	$(".wrap-button div").click(function (ev) {
+		// 		window.location.href = "https://m.jr.jd.com/"
+		// 	})
+		// })
+
+		if (!Detector.webgl) Detector.addGetWebGLMessage();
+
+		var container, stats, controls,markerGroup,markerScene;
+		var camera, scene, renderer, light, artoolkitProfile, arToolkitSource, arToolkitContext, arToolkitContext;
+
+		var clock = new THREE.Clock();
+
+		var mixers = [];
+
+		init();
+		animate();
+
+		function init() {
+
+			container = document.querySelector(".wrap")
+			//document.body.appendChild(container);
+
+			camera = new THREE.PerspectiveCamera(20, window.innerWidth / window.innerHeight, 1, 2000);
+			camera.position.set(100, 1500, 800);
+
+			controls = new THREE.OrbitControls(camera);
+			controls.target.set(0, 100, 0);
+			controls.update();
+
+			scene = new THREE.Scene();
+			markerGroup = new THREE.Group();
+			scene.add(markerGroup);
+			 markerScene = new THREE.Scene()
+			markerGroup.add(markerScene)
+			//scene.background = new THREE.Color( 0xa0a0a0 );
+			markerScene.fog = new THREE.Fog(0xa0a0a0, 200, 1000);
+
+			light = new THREE.HemisphereLight(0xffffff, 0x444444);
+			light.position.set(0, 200, 0);
+			markerScene.add(light);
+
+			light = new THREE.DirectionalLight(0xffffff);
+			light.position.set(0, 200, 100);
+			light.castShadow = true;
+			light.shadow.camera.top = 180;
+			light.shadow.camera.bottom = -100;
+			light.shadow.camera.left = -120;
+			light.shadow.camera.right = 120;
+			markerScene.add(light);
+
+			// scene.add( new THREE.CameraHelper( light.shadow.camera ) );
+
+			// ground
+			// var mesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), new THREE.MeshPhongMaterial( { color: 0x999999, depthWrite: false } ) );
+			// mesh.rotation.x = - Math.PI / 2;
+			// mesh.receiveShadow = true;
+			// scene.add( mesh );
+
+			// var grid = new THREE.GridHelper( 2000, 20, 0x000000, 0x000000 );
+			// grid.material.opacity = 0.2;
+			// grid.material.transparent = true;
+			// scene.add( grid );
+
+			// model
+			var loader = new THREE.FBXLoader();
+			loader.load('models/fbx/Samba Dancing.fbx', function (object) {
+
+				object.mixer = new THREE.AnimationMixer(object);
+				mixers.push(object.mixer);
+
+				var action = object.mixer.clipAction(object.animations[0]);
+				action.play();
+
+				object.traverse(function (child) {
+
+					if (child.isMesh) {
+
+						child.castShadow = true;
+						child.receiveShadow = true;
+
+					}
+
+				});
+
+				markerScene.add(object);
+
+			});
+			renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.shadowMap.enabled = true;
+			renderer.domElement.style.position = 'absolute'
+			renderer.domElement.style.top = '0px'
+			renderer.domElement.style.left = '0px'
+			renderer.domElement.style.width = '100%'
+			renderer.domElement.style.height = '100%'
+			container.appendChild(renderer.domElement);
+
+			window.addEventListener('resize', onWindowResize, false);
+			artoolkitProfile = new THREEx.ArToolkitProfile()
+			artoolkitProfile.sourceWebcam()
+			arToolkitSource = new THREEx.ArToolkitSource(artoolkitProfile.sourceParameters)
+
+			arToolkitSource.init(function onReady() {
+				onWindowResize()
+			})
+			arToolkitContext = new THREEx.ArToolkitContext({
+				cameraParametersUrl: 'camera_para.dat',
+			})
+			arToolkitContext.init(function onCompleted() {
+				// copy projection matrix to camera
+				camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+			})
+			var markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerGroup, {
+				type: 'pattern',
+				patternUrl: 'models/ren.patt',
+				// patternUrl : THREEx.ArToolkitContext.baseURL + '../data/data/patt.kanji',
+				// as we controls the camera, set changeMatrixMode: 'cameraTransformMatrix'
+				changeMatrixMode: 'cameraTransformMatrix'
+			})
+			var markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerGroup, {
+				type: 'pattern',
+				patternUrl: 'models/jd-logo.patt',
+				// patternUrl : THREEx.ArToolkitContext.baseURL + '../data/data/patt.kanji',
+				// as we controls the camera, set changeMatrixMode: 'cameraTransformMatrix'
+				changeMatrixMode: 'cameraTransformMatrix'
+			})
+			//markerGroup.visible = false;
+
+
+
+		}
+
+		function onWindowResize() {
+
+
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+
+
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			arToolkitSource.onResizeElement()
+			arToolkitSource.copyElementSizeTo(renderer.domElement)
+			if (arToolkitContext.arController !== null) {
+				arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas)
+			}
+
+		}
+
+		//
+
+		function animate() {
+			//controls.update();
+
+			requestAnimationFrame(animate);
+
+			if (mixers.length > 0) {
+
+				for (var i = 0; i < mixers.length; i++) {
+
+					mixers[i].update(clock.getDelta());
+
+				}
+
+			}
+			if (arToolkitSource.ready === false) return
+
+			arToolkitContext.update(arToolkitSource.domElement)
+			//debugger
+			// if (markerGroup.visible) {
+			// 	$(".wrap-button div").removeClass("hide")
+			// } else {
+			// 	$(".wrap-button div").addClass("hide")
+			// }
+			scene.visible = markerGroup.visible
+
+			renderer.render(scene, camera);
+
+			//stats.update();
+
+		}
+
+	</script>
+
+</body>
+
+</html>
